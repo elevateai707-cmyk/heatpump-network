@@ -1,0 +1,475 @@
+// Prisma Schema v7 — Heat Pump Network
+// SQLite for local dev, PostgreSQL in production
+// Note: PostgreSQL uses @db.Text for text fields, Json type, and String[] arrays
+// SQLite-compatible version below — swap to postgresql provider for production
+// with: @db.Text → keep String (text is default), Json → Json type, String[] → native arrays
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ──────────────────────────────────────────────────
+// USER
+// ──────────────────────────────────────────────────
+model User {
+  id             String   @id @default(cuid())
+  name           String?
+  email          String   @unique
+  emailVerified  DateTime?
+  image          String?
+  passwordHash   String?
+  role           String   @default("HOMEOWNER") // UserRole enum stored as string
+
+  contractorId   String?   @unique
+  contractor     Contractor? @relation("ContractorOwner", fields: [contractorId], references: [id])
+
+  accounts       Account[]
+  sessions       Session[]
+  leads          Lead[]    @relation("LeadSubmitter")
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+// ──────────────────────────────────────────────────
+// CONTRACTOR
+// ──────────────────────────────────────────────────
+model Contractor {
+  id              String   @id @default(cuid())
+  businessName    String
+  slug            String   @unique
+  description     String
+  tagline         String?
+
+  licenseNumber   String?
+  licenseState    String?
+  insuranceExpiry DateTime?
+  insuranceFile   String?
+  yearsInBusiness Int      @default(0)
+  verificationStatus String @default("PENDING") // VerificationStatus enum
+
+  email           String?
+  phone           String?
+  website         String?
+  addressLine1    String?
+  addressLine2    String?
+  city            String
+  state           String
+  zipCode         String
+  latitude        Float?
+  longitude       Float?
+
+  logoUrl         String?
+  coverImageUrl   String?
+  photoGallery    String  @default("[]") // JSON array of URLs
+
+  reviewCount     Int      @default(0)
+  averageRating   Float    @default(0)
+  responseRate    Float    @default(100)
+  responseTime    String?
+
+  isPremium       Boolean  @default(false)
+  premiumSince    DateTime?
+  badgeOfExcellence Boolean @default(false)
+  badgeAwardedAt  DateTime?
+
+  // Business details stored as JSON strings (arrays in PG)
+  businessHours   String   @default("{}")
+  serviceBrands   String   @default("[]")
+  certifications  String   @default("[]")
+
+  serviceAreas    ServiceArea[]
+  caseStudies     CaseStudy[]
+  reviews         Review[]
+  qas             QA[]
+  leads           Lead[]   @relation("AssignedLead")
+
+  leadBalance     Int      @default(0)
+  creditTransactions CreditTransaction[]
+  subscriptions   Subscription[]
+  sponsoredPlacements SponsoredPlacement[]
+
+  owner           User?    @relation("ContractorOwner")
+
+  isVerified      Boolean  @default(false)
+  verifiedAt      DateTime?
+  searchableText  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([slug])
+  @@index([city, state])
+  @@index([state])
+  @@index([verificationStatus])
+  @@index([isPremium])
+  @@index([isVerified])
+  @@index([averageRating])
+  @@index([latitude, longitude])
+}
+
+// ──────────────────────────────────────────────────
+// SERVICE AREA
+// ──────────────────────────────────────────────────
+model ServiceArea {
+  id            String     @id @default(cuid())
+  contractorId  String
+  contractor    Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  city          String
+  state         String
+  county        String?
+  zipCodes      String     @default("[]") // JSON array of ZIPs
+  radiusMiles   Int        @default(30)
+  isPrimary     Boolean    @default(false)
+
+  @@unique([contractorId, city, state])
+  @@index([city, state])
+  @@index([state])
+}
+
+// ──────────────────────────────────────────────────
+// CASE STUDY
+// ──────────────────────────────────────────────────
+model CaseStudy {
+  id             String   @id @default(cuid())
+  contractorId   String
+  contractor     Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  title          String
+  slug           String
+  summary        String
+  content        String
+  equipmentType  String?
+  homeType       String?
+  homeSize       Int?
+  yearBuilt      Int?
+  previousSystem String?
+  installedSystem String?
+
+  estimatedAnnualSavings Int?
+  energyReductionPercent  Float?
+  rebateAmount            Int?
+  totalProjectCost        Int?
+  paybackPeriod           Int?
+
+  beforeImages    String  @default("[]") // JSON array of URLs
+  afterImages     String  @default("[]")
+  featuredImage   String?
+
+  customerName    String?
+  customerReview  String?
+
+  isPublished     Boolean @default(false)
+  publishDate     DateTime?
+  adminApproved   Boolean @default(false)
+  approvedAt      DateTime?
+  approvedBy      String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([contractorId])
+  @@index([slug])
+  @@index([isPublished, adminApproved])
+}
+
+// ──────────────────────────────────────────────────
+// REBATE PROGRAM
+// ──────────────────────────────────────────────────
+model RebateProgram {
+  id             String   @id @default(cuid())
+  name           String
+  provider       String
+  providerName   String?
+  state          String
+  programType    String
+
+  amountMin       Int?
+  amountMax       Int?
+  amountFixed     Int?
+  amountDescription String
+  percentageCoverage Float?
+
+  incomeLimit       Int?
+  incomeLimitDescription String?
+  equipmentTypes    String  @default("[]") // JSON array
+  requiresExisting  String?
+
+  description     String
+  eligibilityRules String
+  applicationUrl  String?
+  expirationDate  DateTime?
+  isActive        Boolean @default(true)
+
+  dsireId         String?
+  lastSyncedAt    DateTime?
+  dataSource      String  @default("static")
+  isFallbackData  Boolean @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([state, isActive])
+  @@index([programType])
+}
+
+// ──────────────────────────────────────────────────
+// LEAD
+// ──────────────────────────────────────────────────
+model Lead {
+  id              String   @id @default(cuid())
+  contractorId    String?
+  contractor      Contractor? @relation("AssignedLead", fields: [contractorId], references: [id])
+  submitterId     String?
+  submitter       User?    @relation("LeadSubmitter", fields: [submitterId], references: [id])
+
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
+  streetAddress   String?
+  city            String
+  state           String
+  zipCode         String
+
+  projectType     String?
+  homeSize        Int?
+  currentHeating  String?
+  currentCooling  String?
+  electricityProvider String?
+  monthlyBill     Int?
+
+  preferredTimeline String?
+  contactMethod   String   @default("email")
+
+  status          String   @default("NEW") // LeadStatus enum
+  creditDeducted  Boolean  @default(false)
+  notes           String?
+  assignedAt      DateTime?
+
+  source          String?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  ipAddress       String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([contractorId, status])
+  @@index([email])
+  @@index([city, state])
+  @@index([createdAt])
+  @@index([creditDeducted])
+}
+
+// ──────────────────────────────────────────────────
+// CREDIT TRANSACTION
+// ──────────────────────────────────────────────────
+model CreditTransaction {
+  id            String   @id @default(cuid())
+  contractorId  String
+  contractor    Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  type          String   // CreditTransactionType enum
+  amount        Int
+  balanceAfter  Int
+  description   String?
+  leadId        String?
+  stripePaymentIntentId String?
+  stripeInvoiceId        String?
+
+  createdAt     DateTime @default(now())
+
+  @@index([contractorId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────────
+// SUBSCRIPTION
+// ──────────────────────────────────────────────────
+model Subscription {
+  id              String   @id @default(cuid())
+  contractorId    String
+  contractor      Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  planType        String   // SubscriptionPlan enum
+  status          String   @default("ACTIVE") // SubscriptionStatus enum
+  stripeSubscriptionId String?
+  stripePriceId   String?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  trialEndsAt     DateTime?
+
+  earlyLeadAccess     Boolean @default(false)
+  csvExportEnabled    Boolean @default(false)
+  prioritySupport     Boolean @default(false)
+
+  cancelAtPeriodEnd Boolean @default(false)
+  cancelledAt       DateTime?
+  startedAt         DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([contractorId])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────────
+// SPONSORED PLACEMENT
+// ──────────────────────────────────────────────────
+model SponsoredPlacement {
+  id            String   @id @default(cuid())
+  contractorId  String
+  contractor    Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  city          String?
+  state         String?
+  category      String?
+  isGlobal      Boolean  @default(false)
+
+  placementType String   @default("FEATURED_CARD") // SponsoredPlacementType enum
+  title         String?
+  description   String?
+  imageUrl      String?
+  isActive      Boolean  @default(true)
+
+  monthlyRateCents Int
+  stripeInvoiceId  String?
+  startsAt      DateTime
+  endsAt        DateTime
+  autoRenew     Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([contractorId])
+  @@index([isActive, isGlobal])
+}
+
+// ──────────────────────────────────────────────────
+// REVIEW
+// ──────────────────────────────────────────────────
+model Review {
+  id             String   @id @default(cuid())
+  contractorId   String
+  contractor     Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  reviewerName   String
+  reviewerEmail  String
+  rating         Int      @default(5)
+  title          String?
+  content        String
+  projectType    String?
+  projectDate    DateTime?
+
+  status         String   @default("PENDING") // ReviewStatus enum
+  moderatedBy    String?
+  moderatedAt    DateTime?
+  moderationNote String?
+
+  isVerified     Boolean  @default(false)
+  isFeatured     Boolean  @default(false)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([contractorId, status])
+  @@index([rating])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────────
+// Q&A
+// ──────────────────────────────────────────────────
+model QA {
+  id             String   @id @default(cuid())
+  contractorId   String
+  contractor     Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  question       String
+  askerName      String
+  askerEmail     String
+  answer         String?
+  answeredAt     DateTime?
+
+  status         String   @default("PENDING") // QAModeratedStatus enum
+  moderatedBy    String?
+  moderatedAt    DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([contractorId, status])
+}
+
+// ──────────────────────────────────────────────────
+// CONTENT REVIEW ITEM
+// ──────────────────────────────────────────────────
+model ContentReviewItem {
+  id            String   @id @default(cuid())
+  contentType   String   // ContentType enum
+  content       String
+  title         String?
+  targetUrl     String?
+  status        String   @default("PENDING") // ContentReviewStatus enum
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  reviewNotes   String?
+  revisedContent String?
+
+  generatedBy    String?
+  originalPrompt String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([contentType])
+}
+
+// ──────────────────────────────────────────────────
+// NextAuth.js required models
+// ──────────────────────────────────────────────────
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
