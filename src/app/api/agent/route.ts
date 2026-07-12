@@ -87,8 +87,9 @@ export async function POST(req: Request) {
 
   try {
     const agentConfig = loadAgentConfig(AGENT_OVERRIDES);
-    // createProvider reads AI_API_KEY from env (never from the browser).
-    const provider = createProvider({ AI_PROVIDER: 'nous' });
+    // Provider + fallback chain come from env (AI_PROVIDER / AI_FALLBACK_*).
+    // Keys are read server-side only — the browser never sees them.
+    const provider = createProvider();
     const store = new InMemorySessionStore();
 
     const result = await runTurn({
