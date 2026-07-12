@@ -48,3 +48,8 @@ Stay strictly on the topic of heat pumps, home electrification, installer matchi
   fallbackMessage:
     "Our Guide is unavailable right now. Please use the search and request tools and we'll match you with verified local installers.",
 };
+
+/** Dedicated intake schema key in @agentic/forms FORMS_BY_SITE (replaces the
+ * former stopgap reuse of the 'electrification-navigator' key). Used by
+ * /api/lead. Independent of the site's Prisma Lead model / /api/leads flow. */
+export const LEAD_FORM_KEY = 'heat-pump-network';

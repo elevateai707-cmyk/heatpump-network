@@ -6,6 +6,7 @@ import { loadAgentConfig } from '@agentic/agent-core';
 import type { ChatProvider } from '@agentic/agent-core';
 import type { ConversationMessage } from '@agentic/shared-types';
 import { AGENT_OVERRIDES } from '@/lib/agent-config';
+import type { LeadData } from '@agentic/agent-ui';
 
 /**
  * Client wrapper around the shared AgentWidget. It does NOT hold an API key.
@@ -13,6 +14,11 @@ import { AGENT_OVERRIDES } from '@/lib/agent-config';
  * our server route handler (`/api/agent`), which calls `runTurn` server-side.
  * This keeps the model key off the client while still exercising the real
  * agent orchestration + guardrails on the server.
+ *
+ * When the agent is unavailable the widget shows a fallback form; its
+ * onLeadSubmit posts the captured {name,email,message} to /api/lead, which
+ * validates against the dedicated heat-pump-network intake schema. This is
+ * independent of the site's Prisma Lead model / /api/leads flow.
  */
 export function AgentWidgetClient({
   sessionId,
@@ -26,6 +32,21 @@ export function AgentWidgetClient({
   showOnMobileOnly?: boolean;
 }) {
   const agentConfig = useMemo(() => loadAgentConfig(AGENT_OVERRIDES), []);
+
+  const handleLeadSubmit = useMemo(
+    () => async (data: LeadData) => {
+      await fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          message: data.message,
+        }),
+      });
+    },
+    [],
+  );
 
   const provider = useMemo<ChatProvider>(
     () => ({
@@ -72,6 +93,7 @@ export function AgentWidgetClient({
       initialMode={initialMode}
       useMobileButton={useMobileButton}
       showOnMobileOnly={showOnMobileOnly}
+      onLeadSubmit={handleLeadSubmit}
     />
   );
 }
