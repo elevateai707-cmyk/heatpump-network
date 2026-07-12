@@ -18,6 +18,15 @@
     "meilisearch:index": "tsx scripts/meilisync.mjs"
   },
   "dependencies": {
+    "@agentic/agent-core": "*",
+    "@agentic/agent-ui": "*",
+    "@agentic/design-system": "*",
+    "@agentic/forms": "*",
+    "@agentic/seo": "*",
+    "@agentic/analytics": "*",
+    "@agentic/email": "*",
+    "@agentic/shared-types": "*",
+    "@agentic/security": "*",
     "@prisma/client": "^7.0.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-avatar": "^1.1.0",

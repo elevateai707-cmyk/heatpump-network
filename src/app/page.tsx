@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { AgentWidgetClient } from "@/components/AgentWidgetClient";
 import {
   Search,
   Shield,
@@ -280,6 +281,15 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ─── AGENT CHAT WIDGET ─── */}
+      <div className="fixed bottom-4 right-4 z-[60]">
+        <AgentWidgetClient
+          sessionId="heatpump-network-home"
+          initialMode="advisory"
+          useMobileButton
+        />
+      </div>
     </>
   );
 }
